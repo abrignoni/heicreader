@@ -80,16 +80,20 @@ class _Helper:
         self._proc = None
         self._lock = threading.Lock()
 
-    def _start(self):
+    def _command(self) -> list[str]:
         exe = binary_path()
         if exe is None:
             raise Unavailable("no heicreader helper is installed for this platform")
+        return [str(exe), "serve"]
+
+    def _start(self):
+        command = self._command()
         kwargs = {}
         if os.name == "nt":
             # A windowed program would otherwise flash a console for the helper.
             kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
         self._proc = subprocess.Popen(
-            [str(exe), "serve"], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL, **kwargs)
 
     @staticmethod

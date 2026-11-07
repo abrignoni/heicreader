@@ -84,10 +84,17 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(heicreader.decode(DATA / "plain.heic").width, 200)
 
     def test_a_timeout_kills_the_helper_and_the_next_call_starts_a_new_one(self):
-        with self.assertRaises(heicreader.HeicReaderError) as caught:
-            heicreader.decode(DATA / "grid_alpha.heic", timeout=0.000001)
+        # A stand-in helper that never answers, so the timeout is what ends the request.
+        helper = heicreader._Helper()  # pylint: disable=protected-access
+        silent = [sys.executable, "-c", "import time; time.sleep(60)"]
+        with mock.patch.object(helper, "_command", return_value=silent):
+            with self.assertRaises(heicreader.HeicReaderError) as caught:
+                helper.request("decode", (DATA / "plain.heic").read_bytes(), 0.5)
         self.assertIn("timed out", str(caught.exception))
-        self.assertEqual(heicreader.decode(DATA / "plain.heic").width, 200)
+        self.assertIsNone(helper._proc)  # pylint: disable=protected-access
+        answer, body = helper.request("decode", (DATA / "plain.heic").read_bytes(), 30)
+        self.assertEqual((answer["w"], len(body)), (200, 200 * 120 * 3))
+        helper.close()
 
     def test_the_helper_reports_a_version(self):
         self.assertTrue(heicreader.helper_version())
